@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>출석자 목록</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      background: #f9fafb;
+      font-family: "Apple SD Gothic Neo", sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 900px;
+      margin: 40px auto;
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px 24px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #111827;
+    }
+    h2 {
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 4px;
+      margin-top: 20px;
+      color: #2563eb;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      padding: 10px 8px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: left;
+    }
+    td.period {
+      color: #059669;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    th {
+      background: #f3f4f6;
+      font-weight: 600;
+      color: #374151;
+    }
+    td.time { 
+      color: #6b7280; 
+      font-size: 13px; 
+    }
+    .status-cell {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .status-btn {
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid #d1d5db;
+      background: white;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .status-btn:hover {
+      background: #f3f4f6;
+    }
+    .status-btn.active {
+      font-weight: 600;
+      border-width: 2px;
+    }
+    .status-btn.출석.active {
+      background: #dcfce7;
+      border-color: #16a34a;
+      color: #16a34a;
+    }
+    .status-btn.지각.active {
+      background: #fef9c3;
+      border-color: #ca8a04;
+      color: #ca8a04;
+    }
+    .status-btn.조퇴.active {
+      background: #fed7aa;
+      border-color: #ea580c;
+      color: #ea580c;
+    }
+    .status-btn.결석.active {
+      background: #fee2e2;
+      border-color: #dc2626;
+      color: #dc2626;
+    }
+    .delete-btn {
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid #ef4444;
+      background: white;
+      color: #ef4444;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .delete-btn:hover {
+      background: #ef4444;
+      color: white;
+    }
+    .no-data {
+      text-align: center;
+      color: #9ca3af;
+      padding: 20px 0;
+    }
+    .back-btn {
+      display: block;
+      margin: 30px auto 10px;
+      padding: 10px 18px;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .back-btn:hover { 
+      background: #1d4ed8; 
+    }
+    
+    @media (max-width: 768px) {
+      .container {
+        margin: 20px 10px;
+      }
+      table {
+        font-size: 14px;
+      }
+      .status-cell {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>출석자 목록</h1>
+    <div id="attendanceContainer"></div>
+    <button class="back-btn" onclick="goBack()">← 돌아가기</button>
+  </div>
+  <script>
+    function goBack() {
+      window.location.href = "index.html";
+    }
+
+    const container = document.getElementById("attendanceContainer");
+    let attendees = JSON.parse(localStorage.getItem("attendees")) || [];
+
+    // 기존 데이터에 id가 없으면 추가
+    attendees = attendees.map((a, index) => {
+      if (!a.id) {
+        a.id = Date.now() + index;
+      }
+      if (!a.status) {
+        a.status = "출석";
+      }
+      return a;
+    });
+    localStorage.setItem("attendees", JSON.stringify(attendees));
+
+    function saveData() {
+      localStorage.setItem("attendees", JSON.stringify(attendees));
+    }
+
+    function deleteAttendee(id) {
+      if (confirm("정말 삭제하시겠습니까?")) {
+        attendees = attendees.filter(a => a.id !== id);
+        saveData();
+        renderAttendance();
+      }
+    }
+
+    function changeStatus(id, newStatus) {
+      const attendee = attendees.find(a => a.id === id);
+      if (attendee) {
+        attendee.status = newStatus;
+        saveData();
+        renderAttendance();
+      }
+    }
+
+    function renderAttendance() {
+      container.innerHTML = '';
+      
+      if (attendees.length === 0) {
+        container.innerHTML = '<p class="no-data">출석 기록이 없습니다.</p>';
+        return;
+      }
+
+      // 날짜별 그룹핑
+      const grouped = {};
+      attendees.forEach(a => {
+        const key = `${a.date} (${a.day})`;
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(a);
+      });
+
+      // 날짜 내림차순으로 정렬
+      const sortedKeys = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+
+      sortedKeys.forEach(dateKey => {
+        const list = grouped[dateKey];
+        list.sort((a, b) => a.time.localeCompare(b.time));
+
+        const section = document.createElement("div");
+        const title = document.createElement("h2");
+        title.textContent = `${dateKey} (${list.length}명)`;
+        section.appendChild(title);
+
+        const table = document.createElement("table");
+        const header = document.createElement("tr");
+        header.innerHTML = "<th>이름</th><th>출석 시각</th><th>시간대</th><th>상태</th><th>관리</th>";
+        table.appendChild(header);
+
+        list.forEach(a => {
+          const row = document.createElement("tr");
+          
+          const nameCell = document.createElement("td");
+          nameCell.textContent = a.name;
+          
+          const timeCell = document.createElement("td");
+          timeCell.className = "time";
+          timeCell.textContent = a.time;
+          
+          const periodCell = document.createElement("td");
+          periodCell.className = "period";
+          periodCell.textContent = a.period || "-";
+          
+          const statusCell = document.createElement("td");
+          statusCell.className = "status-cell";
+          
+          const statuses = ["출석", "지각", "조퇴", "결석"];
+          statuses.forEach(status => {
+            const btn = document.createElement("button");
+            btn.className = `status-btn ${status}`;
+            if (a.status === status) {
+              btn.classList.add("active");
+            }
+            btn.textContent = status;
+            btn.onclick = () => changeStatus(a.id, status);
+            statusCell.appendChild(btn);
+          });
+          
+          const actionCell = document.createElement("td");
+          const deleteBtn = document.createElement("button");
+          deleteBtn.className = "delete-btn";
+          deleteBtn.textContent = "삭제";
+          deleteBtn.onclick = () => deleteAttendee(a.id);
+          actionCell.appendChild(deleteBtn);
+          
+          row.appendChild(nameCell);
+          row.appendChild(timeCell);
+          row.appendChild(periodCell);
+          row.appendChild(statusCell);
+          row.appendChild(actionCell);
+          table.appendChild(row);
+        });
+
+        section.appendChild(table);
+        container.appendChild(section);
+      });
+    }
+
+    renderAttendance();
+  </script>
+</body>
+</html>
